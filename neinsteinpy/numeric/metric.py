@@ -1,7 +1,5 @@
-import sympy
-
-from einsteinpy.symbolic.helpers import _change_name
-from einsteinpy.symbolic.tensor import NBaseRelativityTensor
+from neinsteinpy.numeric.helpers import _change_name
+from neinsteinpy.numeric.tensor import NBaseRelativityTensor
 
 
 class NMetricTensor(NBaseRelativityTensor):
@@ -15,9 +13,9 @@ class NMetricTensor(NBaseRelativityTensor):
 
         Parameters
         ----------
-        arr : ~sympy.tensor.array.dense_ndim_array.ImmutableDenseNDimArray or list
-            Sympy Array or multi-dimensional list containing Sympy Expressions
-        vars : tuple or list
+        arr : ~numpy.ndarray or list
+            Numpy array of shape [dim, dim, time-space axis(like Nt,Nx1,Nx2,Nx3)]
+        vars : tuple or list of 1-dim numpy.ndarray
             Tuple of crucial symbols denoting time-axis, 1st, 2nd, and 3rd axis (t,x1,x2,x3)
         config : str
             Configuration of contravariant and covariant indices in tensor. 'u' for upper and 'l' for lower indices. Defaults to 'll'.
@@ -27,9 +25,9 @@ class NMetricTensor(NBaseRelativityTensor):
         Raises
         ------
         TypeError
-            Raised when arr is not a list or sympy Array
+            Raised when arr is not a list or numpy Array
         TypeError
-            vars is not a list or tuple
+            vars is not a list or tuple of 1-dim numpy.ndarray
         ValueError
             config has more or less than 2 indices
 
@@ -53,7 +51,7 @@ class NMetricTensor(NBaseRelativityTensor):
 
         Returns
         -------
-        ~einsteinpy.symbolic.metric.NMetricTensor
+        ~neinsteinpy.numeric.metric.NMetricTensor
             New Metric with new configuration. Defaults to 'uu'
 
         Raises
@@ -66,8 +64,11 @@ class NMetricTensor(NBaseRelativityTensor):
         if newconfig == self.config:
             return self
         if newconfig == "uu" or newconfig == "ll":
+            from numpy import moveaxis, inv
             inv_met = NMetricTensor(
-                sympy.simplify(sympy.Matrix(self.arr.tolist()).inv()).tolist(),
+                moveaxis(
+                    inv( moveaxis(self.arr, [0, 1], [-2, -1])) ),
+                    [-2, -1], [0, 1] ),
                 self.vars,
                 config=newconfig,
                 name=_change_name(self.name, context="__" + newconfig),
@@ -86,7 +87,7 @@ class NMetricTensor(NBaseRelativityTensor):
 
         Returns
         -------
-        ~einsteinpy.symbolic.metric.NMetricTensor
+        ~neinsteinpy.numeric.metric.NMetricTensor
             New Metric which is the inverse of original Metric.
 
         """
@@ -103,7 +104,7 @@ class NMetricTensor(NBaseRelativityTensor):
 
         Returns
         -------
-        ~einsteinpy.symbolic.metric.NMetricTensor
+        ~neinsteinpy.numeric.metric.NMetricTensor
             same instance if the configuration is already lower or
             inverse of given metric if configuration is upper
 
@@ -112,25 +113,25 @@ class NMetricTensor(NBaseRelativityTensor):
             return self
         return self.inv()
 
-    def lorentz_transform(self, transformation_matrix):
-        """
-        Performs a Lorentz transform on the tensor.
+    # def lorentz_transform(self, transformation_matrix):
+    #     """
+    #     Performs a Lorentz transform on the tensor.
 
-        Parameters
-        ----------
-            transformation_matrix : ~sympy.tensor.array.dense_ndim_array.ImmutableDenseNDimArray or list
-                Sympy Array or multi-dimensional list containing Sympy Expressions
+    #     Parameters
+    #     ----------
+    #         transformation_matrix : ~sympy.tensor.array.dense_ndim_array.ImmutableDenseNDimArray or list
+    #             Sympy Array or multi-dimensional list containing Sympy Expressions
 
-        Returns
-        -------
-            ~einsteinpy.symbolic.metric.NMetricTensor
-                lorentz transformed tensor
+    #     Returns
+    #     -------
+    #         ~einsteinpy.symbolic.metric.NMetricTensor
+    #             lorentz transformed tensor
 
-        """
-        t = super(NMetricTensor, self).lorentz_transform(transformation_matrix)
-        return NMetricTensor(
-            t.tensor(),
-            vars=self.vars,
-            config=self._config,
-            name=_change_name(self.name, context="__lt"),
-        )
+    #     """
+    #     t = super(NMetricTensor, self).lorentz_transform(transformation_matrix)
+    #     return NMetricTensor(
+    #         t.tensor(),
+    #         vars=self.vars,
+    #         config=self._config,
+    #         name=_change_name(self.name, context="__lt"),
+    #     )
