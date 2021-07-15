@@ -86,8 +86,7 @@ def tensor_product(tensor1, tensor2, i=None, j=None):
         if tensor1.order == 0 == tensor2.order:
             product = tensor1.arr * tensor2.arr
         else:
-            dim = tensor1.arr.shape[0] if tensor1.order >= 1 \
-                else tensor2.arr.shape[0] if tensor2.order >=1 
+            dim = tensor1.arr.shape[0] if tensor1.order >= 1 else tensor2.arr.shape[0] 
             
             product = np.empty(
                 (*tensor1.arr.shape[:tensor1.order],
@@ -96,7 +95,6 @@ def tensor_product(tensor1, tensor2, i=None, j=None):
             for ind1 in list(itertools.product(range(dim), repeat=tensor1.order)):
                 for ind2 in list(itertools.product(range(dim), repeat=tensor2.order)):
                     product[ind1+ind2] = tensor1.arr[ind1] * tensor2.arr[ind2]
-
     else:
         if tensor1.config[i] == tensor2.config[j]:
             raise ValueError(
@@ -113,8 +111,10 @@ def tensor_product(tensor1, tensor2, i=None, j=None):
         
         for ind1 in list(itertools.product(range(tensor1.arr.shape[0]), repeat=tensor1.order-1)):
             for ind2 in list(itertools.product(range(tensor2.arr.shape[0]), repeat=tensor2.order-1)):
-                for k in range(tensor1.arr.shape[tensor1.order]):
-                    product[ind1+ind2] += tensor1.arr[list(ind1).insert(i, k)] * tensor2.arr[list(ind2).insert(j, k)]
+                for k in range(tensor1.arr.shape[i]):
+                    ind1_iter = ind1[:i] + (k,) + ind1[i:]
+                    ind2_iter = ind2[:j] + (k,) + ind2[j:]
+                    product[ind1+ind2] += tensor1.arr[ind1_iter] * tensor2.arr[ind2_iter]
 
         con = tensor1.config[:i] + tensor1.config[i + 1 :]
         fig = tensor2.config[:j] + tensor2.config[j + 1 :]
@@ -122,7 +122,7 @@ def tensor_product(tensor1, tensor2, i=None, j=None):
 
     return NBaseRelativityTensor(
         product,
-        vars=tensor1.vars,
+        var_arrs=tensor1.var_arrs,
         config=newconfig,
         parent_metric=tensor1.parent_metric
     )
@@ -152,8 +152,6 @@ class NTensor:
             Raised when arr is not a list or Numpy array
         TypeError
             Raised when config is not of type str or contains characters other than 'l' or 'u'
-        ValueError
-            Raised when ``config`` implies order of Tensor different than that indicated by shape of ``arr``
 
         """
 
@@ -170,12 +168,7 @@ class NTensor:
             raise TypeError(
                 "config is either not of type 'str' or does contain characters other than 'l' or 'u'"
             )
-        if len(self.arr.shape) != len(config):
-            raise ValueError(
-                "invalid shape of array for tensor of order implied by config: '{}'".format(
-                    config
-                )
-            )
+            
         self.name = name
 
     @property
@@ -240,7 +233,7 @@ class NBaseRelativityTensor(NTensor):
     ----------
     arr : ~numpy.ndarray
         Raw Tensor in sympy array
-    vars : list or tuple of 1-dim ndarray 
+    var_arrs : list or tuple of 1-dim ndarray 
         List of symbols denoting space and time axis
     dims : int
         dimension of the space-time.
@@ -252,7 +245,7 @@ class NBaseRelativityTensor(NTensor):
     def __init__(
         self,
         arr,
-        vars,
+        var_arrs,
         config="ll",
         parent_metric=None,
         name="GenericTensor",
@@ -264,7 +257,7 @@ class NBaseRelativityTensor(NTensor):
         ----------
         arr : ~numpy.ndarray or list
             Numpy Array or multi-dimensional list containing Sympy Expressions
-        vars : tuple or list of numpy.ndarray
+        var_arrs : tuple or list of numpy.ndarray
             List of crucial variables dentoting time-axis and/or spacial axis.
             For example, in case of 4D space-time, the arrangement would look like [t, x1, x2, x3].
         config : str
@@ -282,26 +275,26 @@ class NBaseRelativityTensor(NTensor):
         TypeError
             Raised when config is not of type str or contains characters other than 'l' or 'u'
         TypeError
-            Raised when arguments vars have data type other than list, tuple or set.
+            Raised when arguments var_arrs have data type other than list, tuple or set.
         TypeError
             Raised when argument parent_metric does not belong to NMetricTensor class and isn't None.
         ValueError
-            Raised when argument ``vars`` does not agree with shape of argument ``arr``
+            Raised when argument ``var_arrs`` does not agree with shape of argument ``arr``
 
         """
-        super(BaseRelativityTensor, self).__init__(arr=arr, config=config, name=name)
+        super(NBaseRelativityTensor, self).__init__(arr=arr, config=config, name=name)
 
-        if len(self.arr.shape) != 0 and self.arr.shape[0] != len(vars):
-            raise ValueError("invalid shape of argument arr for vars: {}".format(vars))
+        if len(self.arr.shape) != len(config) + len(var_arrs):
+            raise ValueError("Mismatched shape of argument arr, config and var_arrs. To make the argument legal, the dimension of arr must equal len(config) + the number of space-time axis.")
 
         # Cannot implement the check that parent metric belongs to the class MetricTensor
         # Due to the issue of cyclic imports, would find a workaround
         self._parent_metric = parent_metric
-        if isinstance(vars, (list, tuple)):
-            self.vars = vars
-            self.dims = len(self.vars)
+        if isinstance(var_arrs, (list, tuple)):
+            self.var_arrs = var_arrs
+            self.dims = len(self.var_arrs)
         else:
-            raise TypeError("vars should be a list or tuple")
+            raise TypeError("var_arrs should be a list or tuple")
 
     @property
     def parent_metric(self):
@@ -309,6 +302,33 @@ class NBaseRelativityTensor(NTensor):
         Returns the Metric from which Tensor was derived/associated, if available.
         """
         return self._parent_metric
+
+    def __add__(self, other):
+        from numpy import allclose
+        if self.arr.shape != other.arr.shape:
+            raise ValueError("Mismatched shape of the two tensors. Please check they are expressed on the same variable mesh and ")
+        if self.config != other.config:
+            raise ValueError("Mismatch index config of the two tensors. Pleace check their index config are the same, e.g., 'uu', 'll'.")
+        for i in range(len(self.var_arrs)):
+            if not allclose(self.var_arrs[i], other.var_arrs[i]):
+                raise ValueError("Mismatched variable mesh, you may consider interpolate one tensor on the other's tensor variable mesh.")
+        return NBaseRelativityTensor(
+            self.arr + other.arr,
+            self.var_arrs,
+            config=self.config,
+            parent_metric=self.parent_metric,
+            name="GenericTensor",
+        )
+    def __neg__(self):
+        return NBaseRelativityTensor(
+            -self.arr,
+            self.var_arrs,
+            config=self.config,
+            parent_metric=self.parent_metric,
+            name="GenericTensor",
+        )
+    def __sub__(self, other):
+        return self + other.__neg__()
 
     # def lorentz_transform(self, transformation_matrix):
     #     """
@@ -339,7 +359,7 @@ class NBaseRelativityTensor(NTensor):
 
     #     return NBaseRelativityTensor(
     #         t,
-    #         vars=self.vars,
+    #         var_arrs=self.var_arrs,
     #         config=self.config,
     #         parent_metric=None,
     #         variables=self.variables,

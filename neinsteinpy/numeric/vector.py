@@ -8,7 +8,7 @@ class NGenericVector(NBaseRelativityTensor):
 
     """
 
-    def __init__(self, arr, vars, config="u", parent_metric=None, name="GenericVector"):
+    def __init__(self, arr, var_arrs, config="u", parent_metric=None, name="GenericVector"):
         """
         Constructor and Initializer
 
@@ -16,7 +16,7 @@ class NGenericVector(NBaseRelativityTensor):
         ----------
         arr : ~numpy.ndarray
             Numpy Array of the vector field 
-        vars : tuple or list of 1-dim numpy.ndarray
+        var_arrs : tuple or list of 1-dim numpy.ndarray
             Tuple of crucial symbols denoting time-axis, 1st, 2nd, and 3rd axis (t,x1,x2,x3)
         config : str
             Configuration of contravariant and covariant indices in tensor. 'u' for upper and 'l' for lower indices. Defaults to 'u'.
@@ -34,10 +34,10 @@ class NGenericVector(NBaseRelativityTensor):
             Dimension should be equal to 1
 
         """
-        super(GenericVector, self).__init__(
-            arr=arr, vars=vars, config=config, parent_metric=parent_metric, name=name
+        super(NGenericVector, self).__init__(
+            arr=arr, var_arrs=var_arrs, config=config, parent_metric=parent_metric, name=name
         )
-        if self.arr.rank() == 1:
+        if len(self.arr.shape) - len(var_arrs) == 1:
             self._order = 1
             if not len(config) == self._order:
                 raise ValueError("config should be of length {}".format(self._order))
@@ -75,12 +75,39 @@ class NGenericVector(NBaseRelativityTensor):
         new_tensor = _change_config(self, metric, newconfig)
         new_obj = NGenericVector(
             new_tensor,
-            self.vars,
+            self.var_arrs,
             config=newconfig,
             parent_metric=metric,
             name=_change_name(self.name, context="__" + newconfig),
         )
         return new_obj
+
+    def __add__(self, other):
+        from numpy import allclose
+        if self.arr.shape != other.arr.shape:
+            raise ValueError("Mismatched shape of the two tensors. Please check they are expressed on the same variable mesh and ")
+        if self.config != other.config:
+            raise ValueError("Mismatch index config of the two tensors. Pleace check their index config are the same, e.g., 'uu', 'll'.")
+        for i in range(len(self.var_arrs)):
+            if not allclose(self.var_arrs[i], other.var_arrs[i]):
+                raise ValueError("Mismatched variable mesh, you may consider interpolate one tensor on the other's tensor variable mesh.")
+        return NGenericVector(
+            self.arr + other.arr,
+            self.var_arrs,
+            config=self.config,
+            parent_metric=self.parent_metric,
+            name="GenericTensor",
+        )
+    def __neg__(self):
+        return NGenericVector(
+            -self.arr,
+            self.var_arrs,
+            config=self.config,
+            parent_metric=self.parent_metric,
+            name="GenericTensor",
+        )
+    def __sub__(self, other):
+        return self + other.__neg__()
 
     # def lorentz_transform(self, transformation_matrix):
     #     """
@@ -101,7 +128,7 @@ class NGenericVector(NBaseRelativityTensor):
     #     t = super(GenericVector, self).lorentz_transform(transformation_matrix)
     #     return GenericVector(
     #         t.tensor(),
-    #         vars=self.vars,
+    #         var_arrs=self.var_arrs,
     #         config=self.config,
     #         parent_metric=None,
     #         name=_change_name(self.name, context="__lt"),
