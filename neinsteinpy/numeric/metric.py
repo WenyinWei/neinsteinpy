@@ -1,3 +1,4 @@
+import numpy as np
 from neinsteinpy.numeric.helpers import _change_name
 from neinsteinpy.numeric.tensor import NBaseRelativityTensor
 
@@ -7,7 +8,7 @@ class NMetricTensor(NBaseRelativityTensor):
     Class to define a metric tensor for a space-time
     """
 
-    def __init__(self, arr, var_arrs, config="ll", name="GenericNMetricTensor"):
+    def __init__(self, arr, var_arrs, config="ll", name="GenericNMetricTensor", sqrt_g_pos=True):
         """
         Constructor and Initializer
 
@@ -21,6 +22,8 @@ class NMetricTensor(NBaseRelativityTensor):
             Configuration of contravariant and covariant indices in tensor. 'u' for upper and 'l' for lower indices. Defaults to 'll'.
         name : str
             Name of the Metric Tensor. Defaults to "GenericNMetricTensor".
+        sqrt_g_pos : bool or numpy.ndarray
+            whether or not the sqrt of g is positive, i.e., whether or not $\nabla u^1 \times \nabla u^2 \cdot \nabla u^3$ is positive.
 
         Raises
         ------
@@ -35,6 +38,7 @@ class NMetricTensor(NBaseRelativityTensor):
         super(NMetricTensor, self).__init__(
             arr=arr, var_arrs=var_arrs, config=config, parent_metric=self, name=name
         )
+        self._sqrt_g_pos = sqrt_g_pos
         self._order = 2
         self._invmetric = None
         if not len(config) == self._order:
@@ -113,6 +117,20 @@ class NMetricTensor(NBaseRelativityTensor):
             return self
         return self.inv()
 
+    def sqrt_g(self):
+
+        if isinstance( self._sqrt_g_pos, bool ):
+            sign = 1 if self._sqrt_g_pos else -1
+        elif isinstance( self._sqrt_g_pos, np.ndarray):
+            sign = self._sqrt_g_pos
+
+        return NBaseRelativityTensor(
+            arr=np.linalg.det( np.moveaxis(self.change_config('ll').arr, [0, 1], [-2, -1])) * sign,
+            var_arrs=self.var_arrs,
+            config='',
+            name=_change_name(self.name, context="__g"),
+        )
+        
     # def lorentz_transform(self, transformation_matrix):
     #     """
     #     Performs a Lorentz transform on the tensor.

@@ -143,6 +143,7 @@ def _change_name(curr_name: str, context: str) -> str:
     context : str
             Context of name change - '__lt', for lorentz_transformation
                                    - '__' + newconfig, for config_change (cc)
+                                   - '__g' for g of metric tensors.
     Returns
     -------
     str
