@@ -64,11 +64,11 @@ class NMetricTensor(NBaseRelativityTensor):
         if newconfig == self.config:
             return self
         if newconfig == "uu" or newconfig == "ll":
-            from numpy import moveaxis, inv
+            from numpy import moveaxis
+            from numpy.linalg import inv
             inv_met = NMetricTensor(
                 moveaxis(
-                    inv( moveaxis(self.arr, [0, 1], [-2, -1])) ),
-                    [-2, -1], [0, 1] ),
+                    inv( moveaxis(self.arr, [0, 1], [-2, -1])), [-2, -1], [0, 1] ),
                 self.var_arrs,
                 config=newconfig,
                 name=_change_name(self.name, context="__" + newconfig),
