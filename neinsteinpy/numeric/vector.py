@@ -72,9 +72,9 @@ class NGenericVector(NBaseRelativityTensor):
             metric = self._parent_metric
         if metric is None:
             raise Exception("Parent Metric not found, can't do configuration change")
-        new_tensor = _change_config(self, metric, newconfig)
+        new_tensor_arr = _change_config(self, metric, newconfig)
         new_obj = NGenericVector(
-            new_tensor,
+            new_tensor_arr,
             self.var_arrs,
             config=newconfig,
             parent_metric=metric,

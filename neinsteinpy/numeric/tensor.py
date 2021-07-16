@@ -33,24 +33,28 @@ def _change_config(tensor, metric, newconfig):
 
     # seperate the contravariant & covariant metric tensors
     met_dict = {
-        -1: metric.lower_config().tensor(),
-        1: metric.lower_config().inv().tensor(),
+        -1: metric.lower_config(),
+        1: metric.lower_config().inv(),
     }
 
     # main code
     def chain_config_change():
-        t = sympy.Array(tensor.tensor())
+        t = tensor
+        # t = sympy.Array(tensor.tensor())
         difflist = _difference_list(newconfig, tensor.config)
         for i, action in enumerate(difflist):
             if action == 0:
                 continue
             else:
-                t = tensorcontraction(tensorproduct(met_dict[action], t), (1, 2 + i))
+                # t = tensorcontraction(tensorproduct(met_dict[action], t), (1, 2 + i))
+                t = tensor_product(met_dict[action], t, i=1, j=i)
                 # reshuffle the indices
-                dest = list(range(len(t.shape)))
+                # dest = list(range(len(t.shape)))
+                dest = list(range(t.order))
                 dest.remove(0)
                 dest.insert(i, 0)
-                t = sympy.permutedims(t, dest)
+                # t = sympy.permutedims(t, dest)
+                t = np.moveaxis(t.arr, list(range(t.order)), dest)
         return t
 
     return chain_config_change()
