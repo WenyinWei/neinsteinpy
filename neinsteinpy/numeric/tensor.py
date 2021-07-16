@@ -370,3 +370,52 @@ class NBaseRelativityTensor(NTensor):
     #         functions=self.functions,
     #         name=_change_name(self.name, context="__lt"),
     #     )
+
+def tensor_cross(tensor1, tensor2):
+    import itertools
+
+    if tensor1.config[-1] != tensor2.config[0]:
+        raise ValueError(
+            "Index summation not allowed between %s and %s indices, they shall be both 'u' or 'l'."
+            % (tensor1.config[i], tensor2.config[j])
+        )
+    if tensor1.arr.shape[0] != 3 and tensor2.arr.shape[0] != 3 :
+        raise ValueError("Tensor cross only works for 3-dim quantities.")
+
+    tensor1_noncoord_shape = tensor1.arr.shape[:tensor1.order]
+    tensor2_noncoord_shape = tensor2.arr.shape[:tensor2.order]
+    product = np.zeros(
+        (*tensor1_noncoord_shape[:-1], 3, *tensor2_noncoord_shape[1:],
+         *tensor1.arr.shape[tensor1.order:]), dtype=tensor1.arr.dtype)
+
+    sqrt_g = tensor1.parent_metric.sqrt_g().arr
+    for ind1 in list(itertools.product(range(tensor1.arr.shape[0]), repeat=tensor1.order-1)): # In fact, tensor1.arr.shape[0] must be 3 for cross operation.
+        for ind2 in list(itertools.product(range(tensor2.arr.shape[0]), repeat=tensor2.order-1)):
+            for m, j, k in [(0, 1, 2), (1, 2, 0), (2, 0, 1)]:
+                ind1_iter = ind1[:-1] + (j,) 
+                ind2_iter = (k,) + ind2[1:]
+                if tensor1.config[-1] =='l':
+                    tensor1.arr[ind1_iter] * tensor2.arr[ind2_iter] / sqrt_g 
+                    product[ind1+(m,)+ind2] += tensor1.arr[ind1_iter] * tensor2.arr[ind2_iter] / sqrt_g 
+                else:
+                    product[ind1+(m,)+ind2] += tensor1.arr[ind1_iter] * tensor2.arr[ind2_iter] * sqrt_g 
+            for m, j, k in [(2, 1, 0), (0, 2, 1), (1, 0, 2)]:
+                ind1_iter = ind1[:-1] + (j,) 
+                ind2_iter = (k,) + ind2[1:]
+                if tensor1.config[-1] =='l':
+                    product[ind1+(m,)+ind2] -= tensor1.arr[ind1_iter] * tensor2.arr[ind2_iter] / sqrt_g 
+                else:
+                    product[ind1+(m,)+ind2] -= tensor1.arr[ind1_iter] * tensor2.arr[ind2_iter] * sqrt_g 
+
+    con, fig = tensor1.config[:-1], tensor2.config[1:]
+    if tensor1.config[-1] == 'u':
+        newconfig = con + 'l' + fig
+    else:
+        newconfig = con + 'u' + fig
+
+    return NBaseRelativityTensor(
+        product,
+        var_arrs=tensor1.var_arrs,
+        config=newconfig,
+        parent_metric=tensor1.parent_metric
+    )
