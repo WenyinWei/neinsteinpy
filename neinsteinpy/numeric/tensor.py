@@ -1,5 +1,5 @@
 import numpy as np
-
+from functools import cached_property
 from neinsteinpy.numeric.helpers import _change_name
 
 
@@ -227,6 +227,24 @@ class NTensor:
         """
         return self.arr
 
+    # To allow the NTensor class to be key of dict, i.e. le a NTensor object be distinguable from other NTensor objects. __hash__, __eq__ and __neq__ method are necessary. 
+    @cached_property
+    def __hash__(self):
+        # Reference StackOverflow (Cong Ma, https://stackoverflow.com/a/31829201/12486177)
+        import xxhash
+        h = xxhash.xxh64()
+        h.update(self.arr)
+        m_hashint = h.intdigest()
+        h.reset()
+        return m_hashint
+    def __eq__(self, other) -> bool:
+        if self.arr.shape == other.arr.shape:
+            if self.arr == other.arr:
+                return True
+        return False
+    def __ne__(self, other) -> bool:
+        return not self.__eq__(other)
+
 
 class NBaseRelativityTensor(NTensor):
     """
@@ -334,6 +352,7 @@ class NBaseRelativityTensor(NTensor):
     def __sub__(self, other):
         return self + other.__neg__()
 
+    
     # def lorentz_transform(self, transformation_matrix):
     #     """
     #     Performs a Lorentz transform on the tensor.
